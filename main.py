@@ -6,7 +6,6 @@ from fraud_xai import (
     shap_ensemble
 )
 
-
 def main():
 
     data = np.genfromtxt(
@@ -16,17 +15,8 @@ def main():
         dtype=str
     )
 
-    # Convert all but last column to float
     X = data[:, :-1].astype(float)
-
-    # Convert Class column (remove quotes)
     y = np.array([int(v.strip().strip('"')) for v in data[:, -1]])
-
-
-
-    print("Dataset loaded:", X.shape)
-    print("Fraud count:", np.sum(y == 1))
-    print("Normal count:", np.sum(y == 0))
 
     fraud_idx = np.where(y == 1)[0]
     normal_idx = np.where(y == 0)[0]
@@ -35,49 +25,69 @@ def main():
     normal_idx = normal_idx[:len(fraud_idx) * 5]
 
     idx = np.concatenate([fraud_idx, normal_idx])
-
     X = X[idx]
     y = y[idx]
 
     X = (X - X.mean(axis=0)) / (X.std(axis=0) + 1e-8)
 
-    # 4️⃣ Train / Test split
+    print("\nDataset info")
+    print("Samples:", X.shape[0])
+    print("Features:", X.shape[1])
+    print("Fraud = 1, Normal = 0")
+
     n = len(X)
     perm = np.random.permutation(n)
-
     split = int(0.8 * n)
-    train_idx = perm[:split]
-    test_idx = perm[split:]
 
-    X_train, y_train = X[train_idx], y[train_idx]
-    X_test, y_test = X[test_idx], y[test_idx]
+    X_train = X[perm[:split]]
+    y_train = y[perm[:split]]
+    X_test = X[perm[split:]]
+    y_test = y[perm[split:]]
 
-    print("Train size:", len(X_train))
-    print("Test size:", len(X_test))
-
-    rf = RandomForest(n_trees=20, max_depth=1)
+    rf = RandomForest(n_trees=20, max_depth=5)
     rf.fit(X_train, y_train)
 
     gb = GradientBoosting(
         n_trees=20,
         learning_rate=0.1,
-        max_depth=1
+        max_depth=5
     )
     gb.fit(X_train, y_train)
 
-    x = X_test[0]
-    true_label = y_test[0]
+    preds = []
+    for i in range(len(X_test)):
+        p = ensemble_predict(rf, gb, X_test[i])
+        preds.append(1 if p >= 0.5 else 0)
 
-    p = ensemble_predict(rf, gb, x)
-    phi = shap_ensemble(rf, gb, x)
+    preds = np.array(preds)
+    acc = np.mean(preds == y_test)
 
-    print("\n=== Fraud Detection Result ===")
-    print("True label:", int(true_label))
-    print("Predicted fraud probability:", round(p, 4))
+    print("\nTest evaluation")
+    print("Accuracy:", round(acc, 4))
+    print("Total test samples:", len(X_test))
 
-    print("\nSHAP Explanation:")
-    for i in sorted(phi.keys()):
-        print(f"Feature {i}: {phi[i]:.5f}")
+    print("\nFeature indices used:")
+    print(list(range(X.shape[1])))
+
+    while True:
+        cmd = input("\nGenerate random test sample? (y/n): ").strip().lower()
+        if cmd != "y":
+            break
+
+        i = np.random.randint(len(X_test))
+        x = X_test[i]
+        true_label = y_test[i]
+
+        p = ensemble_predict(rf, gb, x)
+        phi = shap_ensemble(rf, gb, x)
+
+        print("\nSample index:", i)
+        print("True label:", int(true_label))
+        print("Predicted fraud probability:", round(p, 4))
+
+        print("\nSHAP values:")
+        for k in sorted(phi.keys()):
+            print(f"Feature {k}: {phi[k]:.8f}")
 
 if __name__ == "__main__":
     main()
