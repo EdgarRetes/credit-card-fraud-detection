@@ -31,6 +31,7 @@ Se encarga de:
 ### creditcard.csv
 
 Dataset de transacciones financieras con etiquetas de fraude (`1`) y no fraude (`0`).
+Descargar: https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud
 
 ---
 
