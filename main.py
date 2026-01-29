@@ -44,13 +44,13 @@ def main():
     X_test = X[perm[split:]]
     y_test = y[perm[split:]]
 
-    rf = RandomForest(n_trees=20, max_depth=5)
+    rf = RandomForest(n_trees=30, max_depth=6)
     rf.fit(X_train, y_train)
 
     gb = GradientBoosting(
-        n_trees=20,
+        n_trees=30,
         learning_rate=0.1,
-        max_depth=5
+        max_depth=6
     )
     gb.fit(X_train, y_train)
 
