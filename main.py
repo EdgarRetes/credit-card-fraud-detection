@@ -92,6 +92,30 @@ def run_experiments(rf, gb, X_train, y_train, X_test, y_test, rf_time, gb_time):
     print(f"Ensemble:        {ens_lat:.2f} ms")
     print(f"SHAP explain:    {shap_lat:.2f} ms")
     print(f"TOTAL:           {ens_lat + shap_lat:.2f} ms")
+
+    print("\n" + "="*50)
+    print("TABLE 5: FAIRNESS ANALYSIS")
+    print("="*50)
+    
+    amount_feat = X_test[:, 29]
+    low_idx = amount_feat <= np.percentile(amount_feat, 33)
+    high_idx = amount_feat >= np.percentile(amount_feat, 67)
+    
+    low_ppr = np.mean(ens_preds[low_idx])
+    high_ppr = np.mean(ens_preds[high_idx])
+    di_ratio = low_ppr / high_ppr if high_ppr > 0 else 0
+    
+    low_tp = np.sum((ens_preds[low_idx] == 1) & (y_test[low_idx] == 1))
+    low_fn = np.sum((ens_preds[low_idx] == 0) & (y_test[low_idx] == 1))
+    low_tpr = low_tp / (low_tp + low_fn) if (low_tp + low_fn) > 0 else 0
+    
+    high_tp = np.sum((ens_preds[high_idx] == 1) & (y_test[high_idx] == 1))
+    high_fn = np.sum((ens_preds[high_idx] == 0) & (y_test[high_idx] == 1))
+    high_tpr = high_tp / (high_tp + high_fn) if (high_tp + high_fn) > 0 else 0
+    
+    delta_tpr = abs(low_tpr - high_tpr)
+    
+    print(f"Low vs High Amount: DI={di_ratio:.2f}  ΔTPR={delta_tpr:.2f}")
     
     print("\n" + "="*50)
     print("SHAP FEATURE IMPORTANCE (Top 10)")
