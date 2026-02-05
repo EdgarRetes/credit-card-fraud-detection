@@ -142,6 +142,11 @@ def ensemble_predict(rf, gb, x):
 def shap_tree(tree, x, baseline):
     phi = {}
 
+    def expected_value(node):
+        if node.value is not None:
+            return node.value
+        return 0.5 * (expected_value(node.left) + expected_value(node.right))
+
     def walk(node, current):
         if node.value is not None:
             return node.value
@@ -150,16 +155,19 @@ def shap_tree(tree, x, baseline):
         if f not in phi:
             phi[f] = 0.0
 
-        if x[f] <= node.threshold:
-            next_val = node.left.predict(x)
-            phi[f] += next_val - current
-            return walk(node.left, next_val)
-        else:
-            next_val = node.right.predict(x)
-            phi[f] += next_val - current
-            return walk(node.right, next_val)
+        E_without = 0.5 * (expected_value(node.left) + expected_value(node.right))
 
-    walk(tree, baseline)
+        if x[f] <= node.threshold:
+            E_with = expected_value(node.left)
+            next_node = node.left
+        else:
+            E_with = expected_value(node.right)
+            next_node = node.right
+
+        phi[f] += E_with - E_without
+        return walk(next_node, E_with)
+
+    walk(tree, expected_value(tree))
     return phi
 
 def shap_ensemble(rf, gb, x):
